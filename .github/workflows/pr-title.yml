@@ -1,0 +1,36 @@
+name: PR title
+
+# Lints the pull request title with commitlint-config-fabulator.
+# Independent of the caller's dependencies, works in any repository.
+
+on:
+    workflow_call:
+        inputs:
+            node-version:
+                description: Node.js version
+                type: string
+                default: 26.13.1
+
+permissions:
+    contents: read
+
+jobs:
+    commitlint:
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        steps:
+            - name: Use Node.js
+              uses: actions/setup-node@v7
+              with:
+                  node-version: ${{ inputs.node-version }}
+            - name: Install commitlint
+              working-directory: ${{ runner.temp }}
+              run: |
+                  npm install --no-save --no-package-lock --no-audit --no-fund commitlint-config-fabulator@6
+                  echo "module.exports = { extends: ['fabulator'] };" > commitlint.config.cjs
+            - name: Lint PR title
+              working-directory: ${{ runner.temp }}
+              env:
+                  # passed via env to avoid script injection from the title
+                  PR_TITLE: ${{ github.event.pull_request.title }}
+              run: printf '%s\n' "$PR_TITLE" | npx --no -- commitlint

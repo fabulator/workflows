@@ -1,0 +1,64 @@
+name: npm package
+
+# Lint, test and release an npm package with semantic-release.
+#
+# npm publishes via trusted publishing (OIDC). npm validates the CALLING workflow,
+# so the trusted publisher on npmjs.com stays "<repo> + main.yml" of the package.
+# The caller must grant `id-token: write`.
+
+on:
+    workflow_call:
+        inputs:
+            node-version:
+                description: Node.js version
+                type: string
+                default: 26.13.1
+            release-branch:
+                description: Branch semantic-release publishes from
+                type: string
+                default: master
+        secrets:
+            release-token:
+                description: PAT that pushes the release commit + tag and creates the GitHub release (GHUB_BOT_TOKEN)
+                required: true
+
+# Runs on the release branch are never cancelled (a half-finished release leaves a tag without a published package),
+# older runs on other branches are cancelled when a newer commit is pushed.
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: ${{ github.ref != format('refs/heads/{0}', inputs.release-branch) }}
+
+permissions:
+    contents: read
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        permissions:
+            contents: read
+            id-token: write # npm trusted publishing (OIDC) + provenance
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  # semantic-release needs the full history and tags
+                  fetch-depth: 0
+                  # do not let the read-only GITHUB_TOKEN override the release token when pushing the release commit
+                  persist-credentials: false
+            - name: Use Node.js
+              uses: actions/setup-node@v7
+              with:
+                  node-version: ${{ inputs.node-version }}
+                  cache: npm
+            - name: Install dependencies
+              run: npm ci
+            - name: Lint
+              run: npm run lint --if-present
+            - name: Test
+              run: npm test --if-present
+            - name: Release
+              if: github.ref == format('refs/heads/{0}', inputs.release-branch)
+              run: npm run release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.release-token }}
+                  # no NPM_TOKEN - npm publishes via trusted publishing (OIDC)
