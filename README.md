@@ -24,7 +24,8 @@ jobs:
             release-token: ${{ secrets.GHUB_BOT_TOKEN }}
 ```
 
-- Runs `npm ci`, `npm run lint` and `npm test` (both only if the script exists), and `npm run release` on `master`.
+- Runs `npm ci`, `npm run lint`, `npm run typecheck` and `npm test` (each only if the script exists), and `npm run release` on `master`.
+- Type checking is opt-in: add `"typecheck": "tsc --noEmit"` to the package's scripts. The name is intentionally not `tsc`, so repositories that already have a `tsc` script are not affected until they opt in.
 - Publishes via **npm trusted publishing**. npm validates the **calling** workflow, so on npmjs.com configure the package's repository and workflow filename `main.yml` – not this repository.
 - `release-token` is a PAT allowed to push to the release branch (semantic-release commit + tag, GitHub release).
 - Inputs: `node-version` (default `26.13.1`), `release-branch` (default `master`).
