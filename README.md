@@ -30,6 +30,33 @@ jobs:
 - `release-token` is a PAT allowed to push to the release branch (semantic-release commit + tag, GitHub release).
 - Inputs: `node-version` (default `26.13.1`), `release-branch` (default `master`).
 
+## pnpm app – lint, type check, test, build
+
+For pnpm (mono)repos that are deployed rather than published to npm. Deploy jobs stay in the caller and can `needs:` this job.
+
+```yaml
+name: CI
+
+on:
+    pull_request:
+
+permissions:
+    contents: read
+
+jobs:
+    check:
+        uses: fabulator/workflows/.github/workflows/pnpm-app.yml@v1
+        with:
+            node-version: 24.x
+        secrets:
+            registry-token: ${{ secrets.G }} # only if private @fabulator packages are installed
+```
+
+- Runs `pnpm install --frozen-lockfile`, `pnpm run lint`, `typecheck` and `test` (each only if the script exists) and `pnpm -r run build` (disable with `build: false`).
+- Type checking is opt-in via a `"typecheck": "tsc --noEmit"` script, same as in the npm package workflow.
+- `registry-token` (optional) authenticates `registry-scope` (default `@fabulator`) on `npm.pkg.github.com`.
+- Inputs: `node-version` (default `26.13.1`), `pnpm-version` (default `11`), `registry-scope`, `build` (default `true`).
+
 ## PR title
 
 `.github/workflows/pr-title.yml` in the repository:
