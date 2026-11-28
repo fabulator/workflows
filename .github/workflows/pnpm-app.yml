@@ -1,0 +1,66 @@
+name: pnpm app
+
+# Lint, type check, test and build a pnpm (mono)repo that is not published to npm,
+# e.g. an application deployed as a Docker image. Deploying stays in the caller.
+# Optionally authenticates to GitHub Packages for private scoped dependencies.
+
+on:
+    workflow_call:
+        inputs:
+            node-version:
+                description: Node.js version
+                type: string
+                default: 26.13.1
+            pnpm-version:
+                description: pnpm version
+                type: string
+                default: '11'
+            registry-scope:
+                description: npm scope installed from GitHub Packages (used only with registry-token)
+                type: string
+                default: '@fabulator'
+            build:
+                description: Run `pnpm -r --if-present run build`
+                type: boolean
+                default: true
+        secrets:
+            registry-token:
+                description: Token with read:packages for private packages on npm.pkg.github.com
+                required: false
+
+permissions:
+    contents: read
+
+jobs:
+    check:
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        env:
+            NODE_AUTH_TOKEN: ${{ secrets.registry-token }}
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+            - name: Install pnpm
+              uses: pnpm/action-setup@v6
+              with:
+                  version: ${{ inputs.pnpm-version }}
+                  run_install: false
+            - name: Use Node.js
+              uses: actions/setup-node@v7
+              with:
+                  node-version: ${{ inputs.node-version }}
+                  cache: pnpm
+                  registry-url: ${{ env.NODE_AUTH_TOKEN != '' && 'https://npm.pkg.github.com' || '' }}
+                  scope: ${{ env.NODE_AUTH_TOKEN != '' && inputs.registry-scope || '' }}
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+            - name: Lint
+              run: pnpm run --if-present lint
+            - name: Type check
+              run: pnpm run --if-present typecheck
+            - name: Test
+              run: pnpm run --if-present test
+            - name: Build
+              if: inputs.build
+              run: pnpm -r --if-present run build
